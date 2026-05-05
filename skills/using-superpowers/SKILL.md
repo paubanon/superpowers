@@ -48,10 +48,11 @@ Skills use Claude Code tool names. Non-CC platforms: see `references/copilot-too
 ```dot
 digraph skill_flow {
     "User message received" [shape=doublecircle];
-    "About to EnterPlanMode?" [shape=doublecircle];
-    "Already brainstormed?" [shape=diamond];
-    "Invoke brainstorming skill" [shape=box];
-    "Might any skill apply?" [shape=diamond];
+    "Discovery needed?" [shape=diamond];
+    "Choose lowest valid tier" [shape=diamond];
+    "Invoke lightweight-discovery" [shape=box];
+    "Invoke brainstorming" [shape=box];
+    "Might any other skill apply?" [shape=diamond];
     "Invoke Skill tool" [shape=box];
     "Announce: 'Using [skill] to [purpose]'" [shape=box];
     "Has checklist?" [shape=diamond];
@@ -59,14 +60,15 @@ digraph skill_flow {
     "Follow skill exactly" [shape=box];
     "Respond (including clarifications)" [shape=doublecircle];
 
-    "About to EnterPlanMode?" -> "Already brainstormed?";
-    "Already brainstormed?" -> "Invoke brainstorming skill" [label="no"];
-    "Already brainstormed?" -> "Might any skill apply?" [label="yes"];
-    "Invoke brainstorming skill" -> "Might any skill apply?";
-
-    "User message received" -> "Might any skill apply?";
-    "Might any skill apply?" -> "Invoke Skill tool" [label="yes, even 1%"];
-    "Might any skill apply?" -> "Respond (including clarifications)" [label="definitely not"];
+    "User message received" -> "Discovery needed?";
+    "Discovery needed?" -> "Choose lowest valid tier" [label="yes"];
+    "Discovery needed?" -> "Might any other skill apply?" [label="no"];
+    "Choose lowest valid tier" -> "Invoke lightweight-discovery" [label="Tier 1"];
+    "Choose lowest valid tier" -> "Invoke brainstorming" [label="Tier 2"];
+    "Invoke lightweight-discovery" -> "Might any other skill apply?";
+    "Invoke brainstorming" -> "Might any other skill apply?";
+    "Might any other skill apply?" -> "Invoke Skill tool" [label="yes, even 1%"];
+    "Might any other skill apply?" -> "Respond (including clarifications)" [label="definitely not"];
     "Invoke Skill tool" -> "Announce: 'Using [skill] to [purpose]'";
     "Announce: 'Using [skill] to [purpose]'" -> "Has checklist?";
     "Has checklist?" -> "Create TodoWrite todo per item" [label="yes"];
@@ -101,8 +103,28 @@ When multiple skills could apply, use this order:
 1. **Process skills first** (brainstorming, debugging) - these determine HOW to approach the task
 2. **Implementation skills second** (frontend-design, mcp-builder) - these guide execution
 
-"Let's build X" → brainstorming first, then implementation skills.
+"Let's build X" → choose the lowest valid discovery tier first, then implementation skills.
 "Fix this bug" → debugging first, then domain-specific skills.
+
+## Discovery Tiers
+
+Discovery should always start at the lowest valid tier.
+
+- **Tier 0:** No discovery skill. Use this when the task is already concrete and low-risk.
+- **Tier 1:** `lightweight-discovery`. Use this when the task needs some design judgment but not a full spec workflow.
+- **Tier 2:** `brainstorming`. Use this when the work is open-ended, cross-cutting, or worth a durable spec.
+
+`lightweight-discovery` satisfies the discovery requirement for Tier 1 work. Do not invoke full `brainstorming` after `lightweight-discovery` unless the task explicitly escalates to Tier 2.
+
+## Post-Discovery Routing
+
+After discovery, choose the lightest valid implementation route.
+
+- `Implement now` for local, concrete work.
+- `Implement with short brief` for non-trivial work that still does not need a full implementation plan.
+- `Escalate to full planning` when the work is concrete enough to plan but large enough to need `writing-plans`.
+
+Concrete cross-cutting work should usually escalate to planning, not back into full `brainstorming`. Use Tier 2 only when ambiguity remains high enough that implementation planning would still be premature.
 
 ## Skill Types
 
